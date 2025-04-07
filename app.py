@@ -7,7 +7,7 @@ import requests
 
 # Hugging Face Inference API settings
 API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
-headers = {"Authorization": f"Bearer YOUR_HUGGINGFACE_API_KEY"}
+headers = {"Authorization": "Bearer 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"}
 
 # Function to call Hugging Face API for summarization
 def summarize_text(text):
