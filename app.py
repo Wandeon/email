@@ -10,7 +10,7 @@ import math
 API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
 headers = {"Authorization": "Bearer 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"}
 
-# Improved prompt template
+# Prompt template
 PROMPT_TEMPLATE = '''
 You are an advanced assistant specialized in analyzing professional email inboxes across various industries.
 
@@ -32,7 +32,7 @@ Here are the emails to analyze:
 {text}
 '''
 
-# Function to call Hugging Face API for summarization
+# Summarize text using Hugging Face model
 def summarize_text(text):
     payload = {
         "inputs": PROMPT_TEMPLATE.replace("{text}", text)
@@ -43,7 +43,7 @@ def summarize_text(text):
     else:
         return f"Error: {response.text}"
 
-# Read .mbox file and extract email bodies
+# Extract emails from .mbox
 def read_emails_from_mbox(file_path):
     mbox = mailbox.mbox(file_path)
     emails = []
@@ -60,7 +60,7 @@ def read_emails_from_mbox(file_path):
         emails.append(f"Subject: {subject}\n{body}")
     return emails
 
-# Streamlit UI
+# Streamlit app
 st.title("📧 Email Summarizer (MBOX Format)")
 uploaded_file = st.file_uploader("Upload a .mbox file", type=["mbox"])
 
@@ -76,18 +76,19 @@ if uploaded_file:
         st.subheader("📝 Summary")
         batch_size = 20
         num_batches = math.ceil(len(emails) / batch_size)
-        chunks = []
+        partial_summaries = []
 
-        with st.spinner("Preprocessing emails in chunks..."):
+        with st.spinner("Analyzing emails in batches..."):
             for i in range(num_batches):
                 batch = emails[i*batch_size:(i+1)*batch_size]
-                full_text = "\n\n".join(batch)
-                chunks.append(full_text)
+                batch_text = "\n\n".join(batch)
+                summary = summarize_text(batch_text)
+                partial_summaries.append(summary)
 
-        all_text_combined = "\n\n".join(chunks)
-
-        with st.spinner("Generating full summary..."):
-            final_summary = summarize_text(all_text_combined)
+        # Final summarization of all batch summaries
+        full_summary_input = "\n\n".join(partial_summaries)
+        with st.spinner("Generating final full summary..."):
+            final_summary = summarize_text(full_summary_input)
 
         st.markdown("### 📦 Final Summary")
         st.write(final_summary)
