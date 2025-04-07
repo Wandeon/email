@@ -5,15 +5,16 @@ import tempfile
 import mailbox
 import requests
 import math
+from langdetect import detect
 
 # Hugging Face Inference API settings for Mistral 7B Instruct
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
 headers = {"Authorization": "Bearer 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"}
 
-# Chat-style prompt template
-def create_chat_payload(user_text):
+# Chat-style prompt template with language support
+def create_chat_payload(user_text, language="English"):
     prompt = (
-        "[INST] You are an intelligent assistant analyzing email messages from a professional inbox.\n"
+        f"[INST] You are an intelligent assistant analyzing professional email messages written in {language}.\n"
         "Extract and organize relevant information clearly, focusing on:\n"
         "1. Topics Identified\n"
         "2. People and Roles\n"
@@ -36,28 +37,31 @@ def create_chat_payload(user_text):
     }
 
 # Summarize text using Hugging Face model
-def summarize_text(text):
-    payload = create_chat_payload(text)
+def summarize_text(text, language="English"):
+    payload = create_chat_payload(text, language)
     response = requests.post(API_URL, headers=headers, json=payload)
     if response.status_code == 200:
         return response.json()[0]['generated_text']
     else:
         return f"Error: {response.text}"
 
-# Extract emails from .mbox
+# Extract emails from .mbox with UTF-8 support
 def read_emails_from_mbox(file_path):
     mbox = mailbox.mbox(file_path)
     emails = []
     for message in mbox:
         subject = message['subject'] or "(No subject)"
-        body = message.get_payload(decode=True)
-        if body:
-            try:
-                body = body.decode()
-            except:
-                body = str(body)
-        else:
-            body = "(No content)"
+        try:
+            body = message.get_payload(decode=True)
+            if body:
+                try:
+                    body = body.decode('utf-8', errors='ignore')
+                except:
+                    body = str(body)
+            else:
+                body = "(No content)"
+        except:
+            body = "(Unreadable content)"
         emails.append(f"Subject: {subject}\n{body}")
     return emails
 
@@ -74,7 +78,6 @@ if uploaded_file:
     st.success(f"Loaded {len(emails)} emails")
 
     if emails:
-        st.subheader("Summary")
         batch_size = 20
         num_batches = math.ceil(len(emails) / batch_size)
         partial_summaries = []
@@ -84,17 +87,22 @@ if uploaded_file:
                 batch = emails[i*batch_size:(i+1)*batch_size]
                 batch_text = "\n\n".join(batch)
                 if len(batch_text.strip()) < 100:
-                    continue  # Skip short batches
-                summary = summarize_text(batch_text)
+                    continue
+                try:
+                    lang = detect(batch_text)
+                except:
+                    lang = "en"
+                language = "Croatian" if lang == "hr" else "English"
+                summary = summarize_text(batch_text, language)
                 partial_summaries.append(summary)
 
-        # Final summarization of all batch summaries
+        # Final summarization
         if partial_summaries:
             full_summary_input = "\n\n".join(partial_summaries)
-            st.text_area("DEBUG: Final summary input to model", full_summary_input, height=300)
+            language = "Croatian" if detect(full_summary_input) == "hr" else "English"
 
             with st.spinner("Generating final full summary..."):
-                final_summary = summarize_text(full_summary_input)
+                final_summary = summarize_text(full_summary_input, language)
 
             st.markdown("### Final Summary")
             st.write(final_summary)
