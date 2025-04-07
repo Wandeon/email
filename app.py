@@ -6,7 +6,7 @@ import mailbox
 import requests
 import math
 
-# Hugging Face Inference API settings for Mistral 7B
+# Hugging Face Inference API settings for Mistral 7B Instruct
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
 headers = {"Authorization": "Bearer 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"}
 
@@ -27,7 +27,13 @@ def create_chat_payload(user_text):
         "Here are the emails:\n"
         f"{user_text} [/INST]"
     )
-    return {"inputs": prompt}
+    return {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 500,
+            "temperature": 0.3
+        }
+    }
 
 # Summarize text using Hugging Face model
 def summarize_text(text):
@@ -77,18 +83,25 @@ if uploaded_file:
             for i in range(num_batches):
                 batch = emails[i*batch_size:(i+1)*batch_size]
                 batch_text = "\n\n".join(batch)
+                if len(batch_text.strip()) < 100:
+                    continue  # Skip short batches
                 summary = summarize_text(batch_text)
                 partial_summaries.append(summary)
 
         # Final summarization of all batch summaries
-        full_summary_input = "\n\n".join(partial_summaries)
-        with st.spinner("Generating final full summary..."):
-            final_summary = summarize_text(full_summary_input)
+        if partial_summaries:
+            full_summary_input = "\n\n".join(partial_summaries)
+            st.text_area("DEBUG: Final summary input to model", full_summary_input, height=300)
 
-        st.markdown("### Final Summary")
-        st.write(final_summary)
+            with st.spinner("Generating final full summary..."):
+                final_summary = summarize_text(full_summary_input)
 
-        if st.button("Save Summary"):
-            with open("summaries.csv", "a", encoding="utf-8") as f:
-                f.write(f"{uploaded_file.name}|{final_summary}\n")
-            st.success("Summary saved to summaries.csv")
+            st.markdown("### Final Summary")
+            st.write(final_summary)
+
+            if st.button("Save Summary"):
+                with open("summaries.csv", "a", encoding="utf-8") as f:
+                    f.write(f"{uploaded_file.name}|{final_summary}\n")
+                st.success("Summary saved to summaries.csv")
+        else:
+            st.warning("No meaningful content found in the uploaded emails.")
