@@ -7,14 +7,15 @@ import requests
 import math
 from langdetect import detect
 
-# Hugging Face Inference API settings for Mistral 7B Instruct
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+# Hugging Face Inference API settings for Meta LLaMA 2 Chat
+API_URL = "https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf"
 headers = {"Authorization": "Bearer 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"}
 
 # Chat-style prompt template with language support
 def create_chat_payload(user_text, language="English"):
     prompt = (
-        f"[INST] You are an intelligent assistant analyzing professional email messages written in {language}.\n"
+        "[INST] <<SYS>>\n"
+        f"You are an intelligent assistant analyzing email messages in {language}.\n"
         "Extract and organize relevant information clearly, focusing on:\n"
         "1. Topics Identified\n"
         "2. People and Roles\n"
@@ -23,10 +24,8 @@ def create_chat_payload(user_text, language="English"):
         "5. Action Items\n"
         "6. Pending or Follow-Up Items\n"
         "7. Deadlines and Time-sensitive Info\n"
-        "\n"
-        "Group emails logically. Provide concise and structured summaries.\n"
-        "Here are the emails:\n"
-        f"{user_text} [/INST]"
+        "<</SYS>>\n"
+        f"Here are the emails:\n{user_text} [/INST]"
     )
     return {
         "inputs": prompt,
@@ -66,7 +65,7 @@ def read_emails_from_mbox(file_path):
     return emails
 
 # Streamlit app
-st.title("📧 Email Summarizer (MBOX Format) with Mistral 7B")
+st.title("📧 Email Summarizer (MBOX Format) with LLaMA 2 Chat")
 uploaded_file = st.file_uploader("Upload a .mbox file", type=["mbox"])
 
 if uploaded_file:
@@ -96,7 +95,7 @@ if uploaded_file:
                 summary = summarize_text(batch_text, language)
                 partial_summaries.append(summary)
 
-        # Final summarization
+        # Final summarization of all batch summaries
         if partial_summaries:
             full_summary_input = "\n\n".join(partial_summaries)
             language = "Croatian" if detect(full_summary_input) == "hr" else "English"
